@@ -292,7 +292,7 @@ add_action('wp_ajax_hoshinoai_transfer_leadership', 'hoshinoai_ajax_transfer_lea
 
 ## 🤝 技术支持
 
-有任何问题或建议？请联系：[星野爱](1697391069@qq.com)
+有任何问题或建议？请联系：[星野爱]([1697391069@qq.com](https://qm.qq.com/q/Y6iKysFx6e))
 
 ---
 
