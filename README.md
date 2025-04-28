@@ -42,7 +42,8 @@
 ## 开发者
 
 - 星野爱
-- 网站：www.5era.cn
+- blog网站：hoshinoai.xin
+- 个人官网：web.hoshinoai.xin
 
 ## 版本
 
