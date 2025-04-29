@@ -42,8 +42,7 @@
 ## 开发者
 
 - 星野爱
-- blog网站：hoshinoai.xin
-- 个人官网：web.hoshinoai.xin
+- 网站：www.5era.cn
 
 ## 版本
 
@@ -292,7 +291,7 @@ add_action('wp_ajax_hoshinoai_transfer_leadership', 'hoshinoai_ajax_transfer_lea
 
 ## 🤝 技术支持
 
-有任何问题或建议？请联系：[星野爱](https://qm.qq.com/q/Y6iKysFx6e)
+有任何问题或建议？请联系：[星野爱](1697391069@qq.com)
 
 ---
 

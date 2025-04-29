@@ -383,10 +383,19 @@ function hoshinoai_get_character_details_form($team_id, $user_id) {
                     success: function(response) {
                         if (response.success) {
                             notyf("角色详情已保存", "success");
+                            
+                            // 更新浏览器历史记录，但不刷新页面
+                            var teamId = $form.find("input[name=\'team_id\']").val();
+                            var newUrl = updateQueryParam(window.location.href, "team_id", teamId);
+                            history.pushState(null, "", newUrl);
+                            
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 1000);
                         } else {
                             notyf(response.data, "danger");
+                            $button.html(\'<i class="fa fa-save mr10"></i>保存角色详情\').attr("disabled", false);
                         }
-                        $button.html(\'<i class="fa fa-save mr10"></i>保存角色详情\').attr("disabled", false);
                     },
                     error: function(xhr, status, error) {
                         console.log("AJAX错误状态:", status);
@@ -397,6 +406,17 @@ function hoshinoai_get_character_details_form($team_id, $user_id) {
                     }
                 });
             });
+            
+            // 辅助函数：更新URL参数
+            function updateQueryParam(uri, key, value) {
+                var re = new RegExp("([?&])" + key + "=.*?(&|$)", "i");
+                var separator = uri.indexOf("?") !== -1 ? "&" : "?";
+                if (uri.match(re)) {
+                    return uri.replace(re, "$1" + key + "=" + value + "$2");
+                } else {
+                    return uri + separator + key + "=" + value;
+                }
+            }
             
             // 属性值变化时更新修正值显示
             $("input[type=number]").on("change", function() {

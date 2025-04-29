@@ -68,6 +68,45 @@ function hoshinoai_adventure_main_tab_nav($tabs) {
         'loader' => true
     );
     
+    // 添加JavaScript以直接跳转到冒险团页面
+    add_action('wp_footer', function() {
+        ?>
+        <script>
+        jQuery(function($) {
+            // 当冒险团选项卡被点击时，直接跳转到冒险团页面
+            $(document).on('click', '[data-target="#user-tab-adventure"]', function() {
+                window.location.href = '/user/adventure';
+            });
+
+            // 页面加载时直接滚动到选项卡位置
+            $(document).ready(function() {
+                setTimeout(function() {
+                    // 如果找到选项卡元素则滚动到该位置
+                    if ($("#user-tab-adventure").length) {
+                        $('html, body').animate({
+                            scrollTop: $("#user-tab-adventure").offset().top - 100
+                        }, 300);
+                    }
+                }, 300); // 延迟300毫秒确保DOM加载完成
+            });
+            
+            // 如果还没有定义updateQueryParam函数，则定义它
+            if (typeof updateQueryParam !== 'function') {
+                window.updateQueryParam = function(uri, key, value) {
+                    var re = new RegExp("([?&])" + key + "=.*?(&|$)", "i");
+                    var separator = uri.indexOf("?") !== -1 ? "&" : "?";
+                    if (uri.match(re)) {
+                        return uri.replace(re, "$1" + key + "=" + value + "$2");
+                    } else {
+                        return uri + separator + key + "=" + value;
+                    }
+                };
+            }
+        });
+        </script>
+        <?php
+    });
+    
     return $tabs;
 }
 add_filter('user_ctnter_main_tabs_array', 'hoshinoai_adventure_main_tab_nav', 20);
