@@ -1,8 +1,8 @@
 <?php
 /*
  * @Author: 星野爱
- * @Url: www.5era.cn
- * @Date: 2024-09-15
+ * @Url: 5era.cn
+ * @Date: 2025-04-292025-04-29
  * @LastEditTime: 2024-09-18
  * @Description: 数据库处理功能文件，专门管理冒险团插件的数据库操作
  */

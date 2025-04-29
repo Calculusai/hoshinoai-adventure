@@ -34,10 +34,13 @@
 在WordPress管理员后台，前往"设置" > "冒险团设置"，可以进行以下设置：
 
 - 每个用户最多创建的团队数
+- 每个团队最大成员数量
+- 每个团队最大副团长数量
 - 是否启用角色详情功能
 - 是否允许自定义职业
 - 预设职业选项
 - 角色详情显示的字段
+- 高级数据处理选项
 
 ## 开发者
 
@@ -77,7 +80,6 @@
 插件基于子比主题的用户中心系统构建，使用自身特色UI：
 
 - **👤 用户中心集成** - 无缝对接子比主题的用户中心系统
-
 - **💼 模态框操作** - 使用模态框完成各种操作，不影响主界面
 
 ## 📊 已实现功能
@@ -96,6 +98,7 @@
   - 设置副团长（团长权限）
   - 退出团队（成员权限）
   - 主动加入团队（浏览并加入公开团队）
+  - 团长权限转移
 
 - **🧙‍♂️ 角色系统**
   - 更新角色信息（名称、职业、等级）
@@ -109,6 +112,7 @@
   - 可开启/关闭角色详情功能
   - 可配置角色详情表单字段
   - 可设置是否允许自定义角色（限制只能使用预设职业）
+  - 可开启/关闭数据导出功能
 
 ## 🧩 角色权限系统
 
@@ -123,10 +127,12 @@
 | 更新自己的角色信息 | ✅ | ✅ | ✅ |
 | 设置副团长 | ✅ | ❌ | ❌ |
 | 解散团队 | ✅ | ❌ | ❌ |
+| 转移团长权限 | ✅ | ❌ | ❌ |
 
 ## 🎮 支持的游戏类型
 
-- 🐉 D&D 5e
+- 🐉 D&D
+- 🎭 自定义角色扮演游戏
 
 ## 🔌 安装方法
 
@@ -139,165 +145,144 @@
 
 ```
 hoshinoai-adventure/
-├── assets/                # 静态资源
-│   ├── css/               # 样式文件
-│   │   └── style.css      # 主样式表
-│   └── js/                # JavaScript文件
-│       └── adventure.js   # 主脚本文件
-├── includes/              # 核心功能文件
-│   ├── teams-functions.php        # 团队管理功能（团队创建、解散、查询等）
-│   ├── members-functions.php      # 成员管理功能（成员添加、移除、角色变更等）
-│   └── character-details-functions.php  # 角色详情管理功能
-├── admin-options.php      # 管理选项页面
 ├── index.php              # 插件主入口
 ├── functions.php          # 主要功能函数
+├── admin-options.php      # 管理选项页面
+├── style.css              # 样式文件
+├── includes/              # 核心功能文件
+│   ├── database.php                    # 数据库管理模块
+│   ├── teams-functions.php             # 团队管理功能
+│   ├── members-functions.php           # 成员管理功能
+│   └── character-details-functions.php # 角色详情管理功能
 └── README.md              # 文档
 ```
 
-## 💻 主要功能实现
+## 💻 主要功能模块
 
-插件主要集成到子比主题用户中心，使用以下钩子：
+### 1. 数据库模块 (database.php)
 
-```php
-// 添加用户中心侧边栏按钮
-add_filter('zib_user_center_page_sidebar_button_1_args', 'hoshinoai_adventure_sidebar_button');
+负责数据表的创建、更新和维护：
+- 冒险团表 (hoshinoai_adventure_teams)
+- 成员表 (hoshinoai_adventure_members)
+- 角色详情表 (hoshinoai_adventure_character_details)
+- 入团申请表 (hoshinoai_adventure_join_requests)
 
-// 挂钩用户中心主选项卡
-add_filter('user_ctnter_main_tabs_array', 'hoshinoai_adventure_main_tab_nav',20);
+### 2. 团队管理模块 (teams-functions.php)
 
-// 挂钩用户中心选项卡内容
-add_filter('main_user_tab_content_adventure', 'hoshinoai_adventure_tab_content',20);
-// 模态框使用子比函数
-// 主要模态框函数列表：
-1. zib_modal($args) - 创建基本模态框
-2. zib_get_modal_colorful_header($class, $icon, $content, $close_btn) - 创建炫彩头部的模态框
-3. zib_get_refresh_modal_link($args) - 生成通过AJAX刷新内容的模态框链接
-4. zib_get_blank_modal_link($args) - 创建空白的模态框链接
-5. zib_get_blank_modal($args) - 创建空白模态框结构
-6. zib_ajax_notice_modal($type, $msg) - 显示AJAX通知模态框
-// 模态框使用实例：
-/*
-// 创建一个刷新模态框链接
-$args = array(
-    'tag' => 'a',
-    'class' => 'btn',
-    'text' => '打开模态框',
-    'data_class' => 'modal-mini',
-    'query_arg' => array(
-        'action' => 'your_action_name',
-        'id' => $id
-    )
-);
-echo zib_get_refresh_modal_link($args);
+处理团队相关的所有操作：
+- 创建冒险团
+- 获取团队信息
+- 更新团队信息
+- 解散团队
+- 团长权限转移
+- 查询用户创建的团队
+- 查询用户加入的团队
+- 查询公开团队列表
 
-// AJAX处理函数示例
-function your_action_name() {
-    $content = zib_get_modal_colorful_header('jb-blue', '<i class="fa fa-users"></i>', '标题内容');
-    $content .= '<div class="modal-body">模态框内容</div>';
-    echo $content;
-    exit;
-}
-add_action('wp_ajax_your_action_name', 'your_action_name');
-*/
-// AJAX处理钩子
-add_action('wp_ajax_hoshinoai_ajax_create_team', 'hoshinoai_ajax_create_team');
-add_action('wp_ajax_hoshinoai_team_detail_modal', 'hoshinoai_team_detail_modal');
-add_action('wp_ajax_hoshinoai_create_team_modal', 'hoshinoai_create_team_modal');
-add_action('wp_ajax_hoshinoai_add_member', 'hoshinoai_ajax_add_member');
-add_action('wp_ajax_hoshinoai_remove_member', 'hoshinoai_ajax_remove_member');
-add_action('wp_ajax_hoshinoai_set_vice_leader', 'hoshinoai_ajax_set_vice_leader');
-add_action('wp_ajax_hoshinoai_dissolve_team', 'hoshinoai_ajax_dissolve_team');
-add_action('wp_ajax_hoshinoai_leave_team', 'hoshinoai_ajax_leave_team');
-add_action('wp_ajax_hoshinoai_update_character', 'hoshinoai_ajax_update_character');
-add_action('wp_ajax_hoshinoai_join_team', 'hoshinoai_ajax_join_team');
-add_action('wp_ajax_hoshinoai_transfer_leadership', 'hoshinoai_ajax_transfer_leadership');
-```
+### 3. 成员管理模块 (members-functions.php)
 
-### 核心功能分工
+管理团队成员相关功能：
+- 添加团队成员
+- 移除团队成员
+- 获取成员信息
+- 获取团队所有成员
+- 设置副团长
+- 更新角色信息
+- 退出团队
+- 处理入团申请
 
-插件使用清晰的功能分离，将不同职责划分到各个文件中：
+### 4. 角色详情模块 (character-details-functions.php)
 
-- **teams-functions.php**：
-  - 冒险团的创建与解散
-  - 团队基本信息管理
-  - 团队查询与列表功能
-  - 团队领导权转移处理
-  - 团队状态变更
+提供角色详情管理功能：
+- 创建或更新角色详情
+- 获取角色详情信息
+- 计算属性修正值
+- 获取角色职业列表
+- 角色详情表单生成
+- 角色详情显示生成
 
-- **members-functions.php**：
-  - 成员添加与移除
-  - 成员角色变更（团长/副团长/成员）
-  - 角色信息管理
-  - 成员权限控制
-  - 团队加入与退出处理
+### 5. 主功能模块 (functions.php)
 
-- **character-details-functions.php**：
-  - 角色详情管理
-  - 属性值存储与计算
-  - 背景故事与外观描述
-  - 角色个性特点记录
-  - 详情表单渲染与处理
+包含核心功能和用户界面：
+- 用户中心集成
+- 用户界面渲染
+- AJAX交互处理
+- 模态框生成
+- 团队详情显示
+- 角色管理界面
 
-这种分离架构使代码更易于维护，并有助于开发人员快速找到相关功能的实现代码。
+### 6. 管理选项模块 (admin-options.php)
+
+提供后台管理设置页面：
+- 基本设置（团队数量限制等）
+- 角色设置（职业、详情等）
+- 高级设置（数据导出等）
 
 ## 📊 数据表结构
 
 ### 冒险团表 (hoshinoai_adventure_teams)
+存储团队的基本信息
 
 | 字段名 | 类型 | 说明 |
 |--------|------|------|
-| id | INT | 主键 |
-| name | VARCHAR(100) | 团名 |
-| description | TEXT | 描述 |
-| leader_id | bigint(20) | 团长ID |
-| vice_leader_id | bigint(20) | 副团长ID |
-| status | VARCHAR(20) | 状态 |
+| id | INT | 团队ID，主键 |
+| name | VARCHAR(100) | 团队名称 |
+| description | TEXT | 团队描述 |
+| leader_id | BIGINT | 团长用户ID |
+| vice_leader_id | BIGINT | 副团长用户ID |
+| status | VARCHAR(20) | 团队状态：active-活跃，inactive-不活跃 |
+| avatar_url | VARCHAR(255) | 团队头像URL |
+| is_public | TINYINT | 是否公开：1-公开，0-私密 |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
 
 ### 成员表 (hoshinoai_adventure_members)
+存储团队成员的信息
 
 | 字段名 | 类型 | 说明 |
 |--------|------|------|
-| id | INT | 主键 |
-| team_id | INT | 冒险团ID |
-| user_id | bigint(20) | 用户ID |
-| role | VARCHAR(20) | 角色类型(团长/副团长/成员) |
-| character_name | VARCHAR(100) | 角色名 |
-| character_class | VARCHAR(50) | 职业 |
-| character_level | INT | 等级 |
-| join_date | DATETIME | 加入时间 |
+| id | INT | 成员ID，主键 |
+| team_id | INT | 所属团队ID |
+| user_id | BIGINT | 用户ID |
+| role | VARCHAR(20) | 角色：leader-团长，vice_leader-副团长，member-普通成员 |
+| character_name | VARCHAR(100) | 角色名称 |
+| character_class | VARCHAR(50) | 角色职业 |
+| character_level | INT | 角色等级 |
+| join_date | DATETIME | 加入日期 |
+| last_active | DATETIME | 最后活跃时间 |
 
 ### 角色详情表 (hoshinoai_adventure_character_details)
+存储角色的详细信息
 
 | 字段名 | 类型 | 说明 |
 |--------|------|------|
-| id | INT | 主键 |
+| id | INT | 详情ID，主键 |
 | member_id | INT | 成员ID |
-| user_id | bigint(20) | 用户ID |
+| user_id | BIGINT | 用户ID |
 | team_id | INT | 团队ID |
-| status | VARCHAR(20) | 状态 |
+| status | VARCHAR(20) | 状态：active-活跃，inactive-不活跃 |
 | strength | INT | 力量属性 |
 | dexterity | INT | 敏捷属性 |
 | constitution | INT | 体质属性 |
 | intelligence | INT | 智力属性 |
 | wisdom | INT | 感知属性 |
 | charisma | INT | 魅力属性 |
-| background | TEXT | 背景故事 |
-| appearance | TEXT | 外观描述 |
-| personality | TEXT | 性格特点 |
+| background | TEXT | 角色背景故事 |
+| appearance | TEXT | 角色外貌描述 |
+| personality | TEXT | 角色性格特点 |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
 
-## 🤝 技术支持
+### 入团申请表 (hoshinoai_adventure_join_requests)
+存储加入团队的申请记录
 
-有任何问题或建议？请联系：[星野爱](1697391069@qq.com)
-
----
-
-<div align="center">
-
-**🎯 本插件专为5era冒险者公会设计，与子比主题用户中心集成，但拥有专属UI风格**  
-当前版本：1.0.0
-
-</div>
+| 字段名 | 类型 | 说明 |
+|--------|------|------|
+| id | INT | 申请ID，主键 |
+| team_id | INT | 团队ID |
+| user_id | BIGINT | 用户ID |
+| request_message | TEXT | 申请留言 |
+| status | VARCHAR(20) | 申请状态：pending-待处理，approved-已批准，rejected-已拒绝 |
+| request_date | DATETIME | 申请日期 |
+| processed_by | BIGINT | 处理人ID |
+| processed_date | DATETIME | 处理日期 |
