@@ -446,8 +446,33 @@ function hoshinoai_process_join_request($request_id, $action, $processed_by) {
     // 开始事务
     $wpdb->query('START TRANSACTION');
     
-    // 更新申请状态
+    // 检查是否存在已经处理过的同一用户同一团队的申请记录
     $status = ($action === 'approve') ? 'approved' : 'rejected';
+    $existing_request = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}hoshinoai_adventure_join_requests 
+            WHERE team_id = %d AND user_id = %d AND status = %s AND id != %d",
+            $request->team_id,
+            $request->user_id,
+            $status,
+            $request_id
+        )
+    );
+    
+    // 如果存在同状态的申请，先删除它
+    if ($existing_request) {
+        $delete_result = $wpdb->delete(
+            $wpdb->prefix . 'hoshinoai_adventure_join_requests',
+            array('id' => $existing_request->id)
+        );
+        
+        if ($delete_result === false) {
+            $wpdb->query('ROLLBACK');
+            return false;
+        }
+    }
+    
+    // 更新申请状态
     $request_updated = $wpdb->update(
         $wpdb->prefix . 'hoshinoai_adventure_join_requests',
         array(
@@ -560,6 +585,11 @@ function hoshinoai_ajax_join_team() {
     $result = hoshinoai_join_team_request($team_id, $user_id);
     
     if ($result) {
+        // 发送加入申请通知给团长和副团长
+        if (function_exists('hoshinoai_send_join_request_notification')) {
+            hoshinoai_send_join_request_notification($team_id, $user_id);
+        }
+        
         wp_send_json_success(array(
             'message' => '已发送加入申请，请等待团长审核',
         ));
@@ -654,39 +684,9 @@ function hoshinoai_ajax_process_join_request() {
     if ($result) {
         $message = ($action === 'approve') ? '已批准加入申请' : '已拒绝加入申请';
         
-        // 如果是批准，检查是否需要发送通知
-        if ($action === 'approve' && function_exists('hoshinoai_send_notification')) {
-            try {
-                $applicant = get_userdata($request->user_id);
-                if (!$applicant) {
-                    error_log('找不到申请人: ' . $request->user_id);
-                } else {
-                    $applicant_name = $applicant->display_name;
-                    $team_name = $team->name;
-                    
-                    // 发送通知给申请人
-                    hoshinoai_send_notification(
-                        $request->user_id,
-                        sprintf('您加入冒险团"%s"的申请已被批准', $team_name),
-                        sprintf('恭喜！您现在已成为冒险团"%s"的成员。', $team_name)
-                    );
-                    
-                    // 通知其他团队成员
-                    $members = hoshinoai_get_team_members($request->team_id);
-                    foreach ($members as $member) {
-                        if ($member->user_id != $request->user_id && $member->user_id != $user_id) {
-                            hoshinoai_send_notification(
-                                $member->user_id,
-                                sprintf('冒险团"%s"有新成员加入', $team_name),
-                                sprintf('%s已加入您的冒险团"%s"', $applicant_name, $team_name)
-                            );
-                        }
-                    }
-                }
-            } catch (Exception $e) {
-                error_log('发送通知时出错: ' . $e->getMessage());
-                // 继续处理，不中断流程
-            }
+        // 发送申请处理结果通知
+        if (function_exists('hoshinoai_send_application_result_notification')) {
+            hoshinoai_send_application_result_notification($request->team_id, $user_id, $request->user_id, $action === 'approve');
         }
         
         error_log('处理成功，返回: ' . $message);
@@ -761,6 +761,11 @@ function hoshinoai_ajax_add_member() {
     $result = hoshinoai_add_team_member($member_data);
     
     if ($result) {
+        // 发送邀请通知
+        if (function_exists('hoshinoai_send_team_invite_notification')) {
+            hoshinoai_send_team_invite_notification($team_id, $user_id, $target_user->ID);
+        }
+        
         wp_send_json_success(array(
             'message' => '成员添加成功',
             'user_id' => $target_user->ID,
@@ -809,6 +814,11 @@ function hoshinoai_ajax_remove_member() {
     $result = hoshinoai_remove_team_member($team_id, $target_user_id);
     
     if ($result) {
+        // 发送成员被移除通知
+        if (function_exists('hoshinoai_send_member_leave_notification')) {
+            hoshinoai_send_member_leave_notification($team_id, $user_id, $target_user_id, true);
+        }
+        
         wp_send_json_success(array(
             'message' => '成员已移除',
         ));
@@ -852,6 +862,11 @@ function hoshinoai_ajax_set_vice_leader() {
     $result = hoshinoai_set_vice_leader($team_id, $target_user_id);
     
     if ($result) {
+        // 发送角色变更通知
+        if (function_exists('hoshinoai_send_role_change_notification')) {
+            hoshinoai_send_role_change_notification($team_id, $user_id, $target_user_id, 'vice_leader');
+        }
+        
         wp_send_json_success(array(
             'message' => '副团长设置成功',
         ));
@@ -909,6 +924,11 @@ function hoshinoai_ajax_update_character() {
     $result = hoshinoai_update_character($team_id, $user_id, $character_data);
     
     if ($result) {
+        // 发送角色信息更新通知
+        if (function_exists('hoshinoai_send_character_update_notification')) {
+            hoshinoai_send_character_update_notification($team_id, $user_id, $character_data);
+        }
+        
         wp_send_json_success(array(
             'message' => '角色信息已更新',
         ));
@@ -958,6 +978,11 @@ function hoshinoai_ajax_leave_team() {
     $result = hoshinoai_leave_team($team_id, $user_id);
     
     if ($result) {
+        // 发送成员退出通知
+        if (function_exists('hoshinoai_send_member_leave_notification')) {
+            hoshinoai_send_member_leave_notification($team_id, $user_id, $user_id, false);
+        }
+        
         wp_send_json_success(array(
             'message' => '您已成功退出该团队',
         ));

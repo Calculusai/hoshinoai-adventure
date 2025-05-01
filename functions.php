@@ -8,6 +8,14 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+// 包含必要的文件
+require_once plugin_dir_path(__FILE__) . 'includes/database.php';
+require_once plugin_dir_path(__FILE__) . 'includes/teams-functions.php';
+require_once plugin_dir_path(__FILE__) . 'includes/members-functions.php';
+require_once plugin_dir_path(__FILE__) . 'includes/character-details-functions.php';
+require_once plugin_dir_path(__FILE__) . 'includes/notification-functions.php';
+
 /**
  * @description: 用户中心侧边栏-按钮组3
  * @param {*}
@@ -80,13 +88,13 @@ function hoshinoai_adventure_main_tab_nav($tabs) {
 
             // 页面加载时直接滚动到选项卡位置
             $(document).ready(function() {
-                setTimeout(function() {
+                    setTimeout(function() {
                     // 如果找到选项卡元素则滚动到该位置
                     if ($("#user-tab-adventure").length) {
                         $('html, body').animate({
                             scrollTop: $("#user-tab-adventure").offset().top - 100
                         }, 300);
-                    }
+                }
                 }, 300); // 延迟300毫秒确保DOM加载完成
             });
             
@@ -1506,13 +1514,8 @@ function hoshinoai_manage_member_modal() {
                     },
                     dataType: "json",
                     beforeSend: function(xhr) {
-                        // 打印出表单数据便于调试
-                        console.log("发送的表单数据:", $form.serialize());
-                        var formData = {};
-                        $.each($form.serializeArray(), function(i, field) {
-                            formData[field.name] = field.value;
-                        });
-                        console.log("表单数据对象:", formData);
+                        // 记录请求数据便于调试
+                        console.log("正在发送取消副团长请求，团队ID:", ' . $team_id . ', "成员ID:", userId);
                     },
                     success: function(response) {
                         if (response.success) {
@@ -2320,152 +2323,4 @@ function hoshinoai_ajax_update_team() {
 }
 add_action('wp_ajax_hoshinoai_ajax_update_team', 'hoshinoai_ajax_update_team');
 
-/**
- * AJAX处理取消副团长请求
- */
-function hoshinoai_ajax_cancel_vice_leader() {
-    // 验证nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'hoshinoai_adventure_nonce')) {
-        wp_send_json_error('安全验证失败');
-    }
-    
-    // 验证用户是否登录
-    if (!is_user_logged_in()) {
-        wp_send_json_error('请先登录');
-    }
-    
-    // 验证必要字段
-    if (empty($_POST['team_id']) || empty($_POST['user_id'])) {
-        wp_send_json_error('缺少必要参数');
-    }
-    
-    $team_id = intval($_POST['team_id']);
-    $target_user_id = intval($_POST['user_id']);
-    $user_id = get_current_user_id();
-    
-    // 检查当前用户是否是团长
-    $team = hoshinoai_get_team($team_id);
-    
-    if (!$team || $team->leader_id != $user_id) {
-        wp_send_json_error('只有团长可以执行此操作');
-    }
-    
-    // 检查目标用户是否是副团长
-    if ($team->vice_leader_id != $target_user_id) {
-        wp_send_json_error('该成员不是副团长');
-    }
-    
-    // 开始事务
-    global $wpdb;
-    $wpdb->query('START TRANSACTION');
-    
-    // 更新成员角色
-    $member_updated = $wpdb->update(
-        $wpdb->prefix . 'hoshinoai_adventure_members',
-        array('role' => 'member'),
-        array('team_id' => $team_id, 'user_id' => $target_user_id)
-    );
-    
-    // 更新团队表的副团长字段
-    $team_updated = $wpdb->update(
-        $wpdb->prefix . 'hoshinoai_adventure_teams',
-        array('vice_leader_id' => null),
-        array('id' => $team_id)
-    );
-    
-    // 检查是否全部更新成功
-    if ($member_updated !== false && $team_updated !== false) {
-        $wpdb->query('COMMIT');
-        wp_send_json_success(array(
-            'message' => '已取消副团长职位',
-        ));
-    } else {
-        $wpdb->query('ROLLBACK');
-        wp_send_json_error('操作失败');
-    }
-}
-add_action('wp_ajax_hoshinoai_ajax_cancel_vice_leader', 'hoshinoai_ajax_cancel_vice_leader');
 
-/**
- * AJAX处理获取团队详情的请求
- */
-function hoshinoai_ajax_get_team_details() {
-    // 验证nonce
-    if (!wp_verify_nonce($_POST['nonce'], 'hoshinoai_adventure_nonce')) {
-        wp_send_json_error('安全验证失败');
-    }
-    
-    // 验证用户是否登录
-    if (!is_user_logged_in()) {
-        wp_send_json_error('请先登录');
-    }
-    
-    // 验证必要字段
-    if (empty($_POST['team_id'])) {
-        wp_send_json_error('缺少必要参数');
-    }
-    
-    $team_id = intval($_POST['team_id']);
-    $user_id = get_current_user_id();
-    
-    // 获取团队详情HTML
-    $html = hoshinoai_get_team_detail_html($team_id, $user_id);
-    
-    wp_send_json_success(array(
-        'html' => $html,
-        'team_id' => $team_id
-    ));
-}
-add_action('wp_ajax_hoshinoai_ajax_get_team_details', 'hoshinoai_ajax_get_team_details');
-
-/**
- * 显示用户加入的冒险团及职位信息
- * 
- * @param string $desc 原始描述内容
- * @param int $user_id 用户ID
- * @return string 添加了冒险团信息的描述内容
- */
-function hoshinoai_adventure_user_teams_desc($desc, $user_id) {
-    // 获取用户加入的所有团队
-    $joined_teams = hoshinoai_get_user_joined_teams($user_id);
-    
-    if (empty($joined_teams)) {
-        return $desc; // 如果没有加入任何团队，直接返回原描述
-    }
-    
-    $team_info_html = '';
-    
-    // 遍历用户加入的所有团队
-    foreach ($joined_teams as $team) {
-        // 获取用户在该团队中的成员信息
-        $member = hoshinoai_get_member($team->id, $user_id);
-        
-        if (!$member) {
-            continue; // 如果没有找到成员信息，跳过
-        }
-        
-        // 确定用户在团队中的职位
-        $role_text = '';
-        if ($member->role === 'leader') {
-            $role_text = '团长';
-            $role_class = 'c-red'; // 团长用红色
-        } elseif ($member->role === 'vice_leader') {
-            $role_text = '副团长';
-            $role_class = 'c-blue'; // 副团长用蓝色
-        } else {
-            $role_text = '成员';
-            $role_class = 'c-green'; // 普通成员用绿色
-        }
-        
-        // 构建单个团队信息的HTML
-        $team_info_html .= ' <span class="but ' . $role_class . '"><i class="fa fa-users mr6"></i>' . esc_html($team->name) . ' ' . $role_text . '</span>';
-    }
-    
-    // 将团队信息添加到原始描述前面
-    return $team_info_html . $desc;
-}
-
-// 添加到用户页面头部描述
-add_filter('user_page_header_desc', 'hoshinoai_adventure_user_teams_desc', 20, 2);
-// 添加到作者身份标识
-add_filter('author_header_identity', 'hoshinoai_adventure_user_teams_desc', 20, 2);

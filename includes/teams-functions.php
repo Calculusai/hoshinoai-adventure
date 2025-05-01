@@ -424,6 +424,11 @@ function hoshinoai_ajax_create_team() {
     $team_id = hoshinoai_create_team($team_data);
     
     if ($team_id) {
+        // 发送创建成功通知
+        if (function_exists('hoshinoai_send_team_created_notification')) {
+            hoshinoai_send_team_created_notification($team_id, $user_id);
+        }
+        
         wp_send_json_success(array(
             'team_id' => $team_id,
             'message' => '冒险团创建成功！',
@@ -463,10 +468,18 @@ function hoshinoai_ajax_dissolve_team() {
         wp_send_json_error('您没有权限解散此冒险团');
     }
     
+    // 获取团队成员，用于后面发送通知
+    $members = hoshinoai_get_team_members($team_id);
+    
     // 解散团队
     $result = hoshinoai_dissolve_team($team_id);
     
     if ($result) {
+        // 发送解散通知
+        if (function_exists('hoshinoai_send_team_dissolved_notification') && !empty($members)) {
+            hoshinoai_send_team_dissolved_notification($team_id, $user_id, $members);
+        }
+        
         wp_send_json_success(array(
             'message' => '冒险团已成功解散',
         ));
@@ -510,6 +523,11 @@ function hoshinoai_ajax_transfer_leadership() {
     $result = hoshinoai_transfer_leadership($team_id, $new_leader_id);
     
     if ($result) {
+        // 发送团长转让通知
+        if (function_exists('hoshinoai_send_leadership_transfer_notification')) {
+            hoshinoai_send_leadership_transfer_notification($team_id, $user_id, $new_leader_id);
+        }
+        
         wp_send_json_success(array(
             'message' => '团长职位转让成功',
         ));
@@ -517,4 +535,161 @@ function hoshinoai_ajax_transfer_leadership() {
         wp_send_json_error('团长职位转让失败');
     }
 }
-add_action('wp_ajax_hoshinoai_ajax_transfer_leadership', 'hoshinoai_ajax_transfer_leadership'); 
+add_action('wp_ajax_hoshinoai_ajax_transfer_leadership', 'hoshinoai_ajax_transfer_leadership');
+
+/**
+ * AJAX处理取消副团长请求
+ */
+function hoshinoai_ajax_cancel_vice_leader() {
+    // 验证nonce
+    if (!wp_verify_nonce($_POST['nonce'], 'hoshinoai_adventure_nonce')) {
+        wp_send_json_error('安全验证失败');
+    }
+    
+    // 验证用户是否登录
+    if (!is_user_logged_in()) {
+        wp_send_json_error('请先登录');
+    }
+    
+    // 验证必要字段
+    if (empty($_POST['team_id']) || empty($_POST['user_id'])) {
+        wp_send_json_error('缺少必要参数');
+    }
+    
+    $team_id = intval($_POST['team_id']);
+    $target_user_id = intval($_POST['user_id']);
+    $user_id = get_current_user_id();
+    
+    // 检查当前用户是否是团长
+    $team = hoshinoai_get_team($team_id);
+    
+    if (!$team || $team->leader_id != $user_id) {
+        wp_send_json_error('只有团长可以执行此操作');
+    }
+    
+    // 检查目标用户是否是副团长
+    if ($team->vice_leader_id != $target_user_id) {
+        wp_send_json_error('该成员不是副团长');
+    }
+    
+    // 开始事务
+    global $wpdb;
+    $wpdb->query('START TRANSACTION');
+    
+    // 更新成员角色
+    $member_updated = $wpdb->update(
+        $wpdb->prefix . 'hoshinoai_adventure_members',
+        array('role' => 'member'),
+        array('team_id' => $team_id, 'user_id' => $target_user_id)
+    );
+    
+    // 更新团队表的副团长字段
+    $team_updated = $wpdb->update(
+        $wpdb->prefix . 'hoshinoai_adventure_teams',
+        array('vice_leader_id' => null),
+        array('id' => $team_id)
+    );
+    
+    // 检查是否全部更新成功
+    if ($member_updated !== false && $team_updated !== false) {
+        $wpdb->query('COMMIT');
+        
+        // 发送取消副团长通知
+        if (function_exists('hoshinoai_send_role_change_notification')) {
+            hoshinoai_send_role_change_notification($team_id, $user_id, $target_user_id, 'member');
+        }
+        
+        wp_send_json_success(array(
+            'message' => '已取消副团长职位',
+        ));
+    } else {
+        $wpdb->query('ROLLBACK');
+        wp_send_json_error('操作失败');
+    }
+}
+add_action('wp_ajax_hoshinoai_ajax_cancel_vice_leader', 'hoshinoai_ajax_cancel_vice_leader');
+
+
+/**
+ * AJAX处理获取团队详情的请求
+ */
+function hoshinoai_ajax_get_team_details() {
+    // 验证nonce
+    if (!wp_verify_nonce($_POST['nonce'], 'hoshinoai_adventure_nonce')) {
+        wp_send_json_error('安全验证失败');
+    }
+    
+    // 验证用户是否登录
+    if (!is_user_logged_in()) {
+        wp_send_json_error('请先登录');
+    }
+    
+    // 验证必要字段
+    if (empty($_POST['team_id'])) {
+        wp_send_json_error('缺少必要参数');
+    }
+    
+    $team_id = intval($_POST['team_id']);
+    $user_id = get_current_user_id();
+    
+    // 获取团队详情HTML
+    $html = hoshinoai_get_team_detail_html($team_id, $user_id);
+    
+    wp_send_json_success(array(
+        'html' => $html,
+        'team_id' => $team_id
+    ));
+}
+add_action('wp_ajax_hoshinoai_ajax_get_team_details', 'hoshinoai_ajax_get_team_details');
+
+/**
+ * 显示用户加入的冒险团及职位信息
+ * 
+ * @param string $desc 原始描述内容
+ * @param int $user_id 用户ID
+ * @return string 添加了冒险团信息的描述内容
+ */
+function hoshinoai_adventure_user_teams_desc($desc, $user_id) {
+    // 获取用户加入的所有团队
+    $joined_teams = hoshinoai_get_user_joined_teams($user_id);
+    
+    if (empty($joined_teams)) {
+        return $desc; // 如果没有加入任何团队，直接返回原描述
+    }
+    
+    $team_info_html = '';
+    
+    // 遍历用户加入的所有团队
+    foreach ($joined_teams as $team) {
+        // 获取用户在该团队中的成员信息
+        $member = hoshinoai_get_member($team->id, $user_id);
+        
+        if (!$member) {
+            continue; // 如果没有找到成员信息，跳过
+        }
+        
+        // 确定用户在团队中的职位
+        $role_text = '';
+        if ($member->role === 'leader') {
+            $role_text = '团长';
+            $role_class = 'c-red'; // 团长用红色
+        } elseif ($member->role === 'vice_leader') {
+            $role_text = '副团长';
+            $role_class = 'c-blue'; // 副团长用蓝色
+        } else {
+            $role_text = '成员';
+            $role_class = 'c-green'; // 普通成员用绿色
+        }
+        
+        // 构建单个团队信息的HTML
+        $team_info_html .= ' <span class="but ' . $role_class . '"><i class="fa fa-users mr6"></i>' . esc_html($team->name) . ' ' . $role_text . '</span>';
+    }
+    
+    // 将团队信息添加到原始描述前面
+    return $team_info_html . $desc;
+}
+
+// 添加到用户页面头部描述
+add_filter('user_page_header_desc', 'hoshinoai_adventure_user_teams_desc', 20, 2);
+// 添加到作者身份标识
+add_filter('author_header_identity', 'hoshinoai_adventure_user_teams_desc', 20, 2);

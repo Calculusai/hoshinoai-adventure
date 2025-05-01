@@ -1,7 +1,7 @@
 <?php
 /*
  * @Author: 星野爱
- * @Url: 5era.cn
+ * @Url: https://hoshinoai.xin/
  * @Date: 2025-04-29
  * @LastEditTime: 2025-04-29
  */
@@ -55,12 +55,10 @@ function hoshinoai_adventure_add_options_page() {
     
     // 创建设置页面
     CSF::createOptions($prefix, array(
-        'menu_title' => '冒险团设置',
+        'menu_title' => '5era冒险团设置',
         'menu_slug' => 'hoshinoai-adventure-settings',
         'framework_title' => '星野爱冒险团设置 <small>v1.0.0</small>',
-        'menu_parent' => 'options-general.php',
-        'menu_type' => 'submenu',
-        'show_bar_menu' => false,
+        'show_in_customizer' => true,
         'theme' => 'light',
         'footer_text' => '让游戏体验更加精彩',
     ));
@@ -76,7 +74,7 @@ function hoshinoai_adventure_add_options_page() {
                 'style' => 'success',
                 'content' => '<h3 style="color:#4CAF50;">🌟【星野爱冒险团插件】🌟</h3>
                 <p>欢迎使用星野爱冒险团插件，这是一款用于角色扮演游戏冒险团管理的WordPress插件。</p>
-                <p>如果您有任何建议，都可以访问作者的网站 <a href="https://www.5era.cn/" target="_blank">星野爱</a> 进行反馈。</p>
+                <p>如果您有任何建议，都可以访问作者的网站 <a href="https://hoshinoai.xin/" target="_blank">星野爱</a> 进行反馈。</p>
                 <p>作者会不断完善本插件，添加更多优质功能。</p>',
             ),
         )
@@ -275,32 +273,43 @@ function hoshinoai_adventure_add_options_page() {
             array(
                 'type' => 'content',
                 'content' => '
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <h3>星野爱冒险团 v1.0.0</h3>
+                    <div class="zib-mission-intro">
+                        <h2 class="zib-mission-title"><span>星野爱冒险团 v1.0.0</span></h2>
                         <p>一款用于管理角色扮演游戏冒险团队的WordPress插件</p>
-                        <p>作者：<a href="https://www.5era.cn/" target="_blank">星野爱</a></p>
+                        <div class="author-info">作者：<a href="https://hoshinoai.xin/" target="_blank">星野爱</a></div>
                     </div>
                     
-                    <div style="margin-bottom: 20px;">
-                        <h4>插件介绍</h4>
-                        <p>星野爱冒险团是一个用于管理角色扮演游戏（如D&D）冒险团队的WordPress插件，它允许用户创建冒险团、邀请成员、设置角色信息等。</p>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <h4>主要功能</h4>
-                        <ul>
-                            <li>创建和管理冒险团队</li>
-                            <li>邀请成员加入团队</li>
-                            <li>为角色添加详细信息（名称、职业、等级）</li>
-                            <li>支持角色详情（属性值、背景故事、外观描述、性格特点）</li>
-                            <li>团队管理（团长、副团长、成员角色）</li>
-                            <li>权限控制系统</li>
-                        </ul>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <h4>依赖</h4>
-                        <p>本插件依赖于子比主题(ZibTheme)的模态框功能，请确保您的WordPress安装中已经安装并激活了子比主题。</p>
+                    <div class="zib-mission-content">
+                        <div class="zib-mission-feature">
+                            <div class="zib-mission-feature-icon">
+                                <i class="fa fa-info-circle"></i>
+                            </div>
+                            <h3>插件介绍</h3>
+                            <p>星野爱冒险团是一个用于管理角色扮演游戏（如D&D）冒险团队的WordPress插件，它允许用户创建冒险团、邀请成员、设置角色信息等。</p>
+                        </div>
+                        
+                        <div class="zib-mission-feature">
+                            <div class="zib-mission-feature-icon">
+                                <i class="fa fa-list"></i>
+                            </div>
+                            <h3>主要功能</h3>
+                            <ul class="feature-list">
+                                <li><i class="fa fa-check-circle"></i> 创建和管理冒险团队</li>
+                                <li><i class="fa fa-check-circle"></i> 邀请成员加入团队</li>
+                                <li><i class="fa fa-check-circle"></i> 为角色添加详细信息（名称、职业、等级）</li>
+                                <li><i class="fa fa-check-circle"></i> 支持角色详情（属性值、背景故事、外观描述、性格特点）</li>
+                                <li><i class="fa fa-check-circle"></i> 团队管理（团长、副团长、成员角色）</li>
+                                <li><i class="fa fa-check-circle"></i> 权限控制系统</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="zib-mission-feature">
+                            <div class="zib-mission-feature-icon">
+                                <i class="fa fa-plug"></i>
+                            </div>
+                            <h3>依赖</h3>
+                            <p>本插件依赖于子比主题(ZibTheme)的模态框功能，请确保您的WordPress安装中已经安装并激活了子比主题。</p>
+                        </div>
                     </div>
                 ',
             ),

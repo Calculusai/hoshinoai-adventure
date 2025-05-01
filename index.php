@@ -1,11 +1,11 @@
 <?php
 /*
 Plugin Name: 星野爱冒险团
-Plugin URI: https://5era.cn/
+Plugin URI: https://5era.cn/user/adventure
 Description: 一款用于管理角色扮演游戏冒险团队的WordPress插件
 Version: 1.0.0
 Author: 星野爱
-Author URI: https://5era.cn/
+Author URI: https://hoshinoai.xin
 */
 // 定义一个常量，用于存储插件URL
 define('hoshinoai_adventure_url', plugins_url('', __FILE__));
@@ -29,6 +29,8 @@ function hoshinoai_adventure_plugin_init() {
        '/includes/teams-functions.php',
        '/includes/members-functions.php',
        '/includes/character-details-functions.php',
+       'includes/notification-functions.php',
+       
     );
     // 遍历文件数组，引入文件
     foreach ( $require_once as $require ) {
